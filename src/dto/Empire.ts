@@ -3,7 +3,7 @@ export interface Empire {
   bounty_hunter: BountyHunter[];
 }
 
-interface BountyHunter {
+export interface BountyHunter {
   planet: string;
   day: number;
 }

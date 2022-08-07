@@ -1,21 +1,25 @@
 import cors from "cors";
 import express from "express";
-import sqlite3 from "sqlite3";
-import { open } from "sqlite";
-import path from "path";
+import { Route } from "./dto/Route";
+import { computeChanceOfarrival } from "./compute";
+import { BountyHunter, Empire } from "./dto/Empire";
 import falcon from "./millennium-falcon.json";
+import { openDb } from "./db";
 
 // this is a top-level await
 (async () => {
   // open the database
-  const db_name = path.join(__dirname, "", falcon.routes_db);
-
-  const db = await open({
-    filename: db_name,
-    driver: sqlite3.Database,
-  });
-  const result = await db.all("SELECT * FROM routes order by origin");
-  console.log(result);
+  const connection = await openDb();
+  const routes: Route[] = await connection.all(
+    "SELECT * FROM routes order by origin"
+  );
+  const bountyHunter: BountyHunter = { planet: "hoth", day: 6 };
+  const empire: Empire = {
+    countdown: 7,
+    bounty_hunter: [bountyHunter],
+  };
+  const t = computeChanceOfarrival(routes, empire, falcon);
+  console.log(t);
 })();
 
 /**
