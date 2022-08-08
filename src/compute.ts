@@ -1,28 +1,23 @@
-import { Empire } from './dto/Empire';
-import { Route } from './dto/Route';
-import { Ship } from './dto/Ship';
+import { Empire } from "./dto/Empire";
+import { Route } from "./dto/Route";
+import { Ship } from "./dto/Ship";
+
+interface Edge {
+  [origin: string]: Array<{ destination: string; travel_time: number }>;
+}
 
 export const computeChanceOfarrival = (
   routes: Route[],
-  bounty_hunter: Empire,
+  empire: Empire,
   ship: Ship
 ): any[][] => {
   const currentRoutes = routes;
   return findAllPathFromStarToTheEnd(
     currentRoutes,
     ship.departure,
-    ship.arrival
+    ship.arrival,
+    ship.autonomy
   );
-};
-interface Edge {
-  [origin: string]: Array<{ destination: string; travel_time: number }>;
-}
-
-// find all planet from origin and destination in current routes
-const findAllUniqueOriginAndDestination = (currentRoutes: Route[]) => {
-  const uniqueOrigin = currentRoutes.map((r) => r.origin);
-  const uniqueDestination = currentRoutes.map((r) => r.destination);
-  return [...new Set(uniqueOrigin.concat(uniqueDestination))];
 };
 
 // add edge from origin to destination
@@ -46,6 +41,7 @@ function addEdgePlanet(
     });
   }
 }
+
 function isNotVisited(
   x: string,
   path: { destination: string; travel_time: number }[]
@@ -59,23 +55,32 @@ function isNotVisited(
 const checkIfThereIsEnoughTime = (
   timeLimit: number,
   path: { destination: string; travel_time: number }[],
-  currentNodeTravelTime: number,
+  currentNodeTravelTime: { destination: string; travel_time: number },
   shipAutonomy: number
 ): boolean => {
-  const initalValue = currentNodeTravelTime;
-  const sumAllTravelTime = path.reduce(
-    (sum, path) => sum + path.travel_time,
-    initalValue
-  );
+  let autonomy = shipAutonomy;
+  let initalValue = 0;
+  const tempArray = [...path, currentNodeTravelTime];
+  for (const p of tempArray) {
+    // Check if distance can be done then get fuel & reset ship autonomy
+    if (autonomy < p.travel_time) {
+      autonomy = shipAutonomy;
+      initalValue++;
+    } else {
+      autonomy -= p.travel_time;
+    }
+    initalValue += p.travel_time;
+  }
 
-  return sumAllTravelTime <= timeLimit;
+  return initalValue <= timeLimit;
 };
 
 const findAllpaths = (
   start: string,
   end: string,
   adj: Array<Edge>,
-  shipAutonomy: number
+  shipAutonomy: number,
+  countDown: number
 ): Array<any[]> => {
   // Create a queue which stores
   // the paths
@@ -112,12 +117,15 @@ const findAllpaths = (
     for (let i = 0; i < lastNode.length; i++) {
       if (
         isNotVisited(lastNode[i], path) &&
-        lastNode[i].travel_time <= shipAutonomy &&
-        checkIfThereIsEnoughTime(7, path, lastNode[i].travel_time, shipAutonomy)
+        lastNode[i].travel_time <= shipAutonomy
       ) {
-        let newpath: any[] = Array.from(path);
-        newpath.push(lastNode[i]);
-        queue.push(newpath);
+        if (
+          checkIfThereIsEnoughTime(countDown, path, lastNode[i], shipAutonomy)
+        ) {
+          let newpath: any[] = Array.from(path);
+          newpath.push(lastNode[i]);
+          queue.push(newpath);
+        }
       }
     }
   }
@@ -128,13 +136,13 @@ const findAllpaths = (
 export const findAllPathFromStarToTheEnd = (
   currentRoutes: Route[],
   start: string,
-  end: string
+  end: string,
+  shipAutonomy: number
 ): any[][] => {
-  const vertices = findAllUniqueOriginAndDestination(currentRoutes);
   const adjList: Array<Edge> = [];
   for (const route of currentRoutes) {
     addEdgePlanet(route.origin, route.destination, route.travel_time, adjList);
   }
 
-  return findAllpaths(start, end, adjList, 6);
+  return findAllpaths(start, end, adjList, shipAutonomy, 11);
 };
