@@ -1,6 +1,6 @@
-import { Empire } from "./dto/Empire";
-import { Route } from "./dto/Route";
-import { Ship } from "./dto/Ship";
+import { Empire } from './dto/Empire';
+import { Route } from './dto/Route';
+import { Ship } from './dto/Ship';
 
 export const computeChanceOfarrival = (
   routes: Route[],
@@ -11,8 +11,7 @@ export const computeChanceOfarrival = (
   return findAllPathFromStarToTheEnd(
     currentRoutes,
     ship.departure,
-    ship.arrival,
-    bounty_hunter.countdown
+    ship.arrival
   );
 };
 interface Edge {
@@ -47,17 +46,36 @@ function addEdgePlanet(
     });
   }
 }
-function isNotVisited(x: string, path: string[]) {
+function isNotVisited(
+  x: string,
+  path: { destination: string; travel_time: number }[]
+) {
   for (let i = 0; i < path.length; i++) {
-    if (path[i] === x) return false;
+    if (path[i].destination === x) return false;
   }
   return true;
 }
 
-const testDfs = (
+const checkIfThereIsEnoughTime = (
+  timeLimit: number,
+  path: { destination: string; travel_time: number }[],
+  currentNodeTravelTime: number,
+  shipAutonomy: number
+): boolean => {
+  const initalValue = currentNodeTravelTime;
+  const sumAllTravelTime = path.reduce(
+    (sum, path) => sum + path.travel_time,
+    initalValue
+  );
+
+  return sumAllTravelTime <= timeLimit;
+};
+
+const findAllpaths = (
   start: string,
   end: string,
-  adj: Array<Edge>
+  adj: Array<Edge>,
+  shipAutonomy: number
 ): Array<any[]> => {
   // Create a queue which stores
   // the paths
@@ -65,9 +83,9 @@ const testDfs = (
   let queue: Array<any[]> = [];
 
   // Path vector to store the current path
-  let path: any[] = [];
+  let path: { destination: string; travel_time: number }[] = [];
 
-  path.push(start);
+  path.push({ destination: start, travel_time: 0 });
   queue.push(path);
 
   while (queue.length !== 0) {
@@ -76,14 +94,13 @@ const testDfs = (
     let last = path[path.length - 1];
     // If last vertex is the desired destination
     // then print the path
-    if (last.destination ? last.destination === end : last === end) {
+    if (last.destination === end) {
+      console.log(path);
       tempArray.push(path);
     }
 
-    const indexOfPlanet = adj.findIndex((e) =>
-      last.destination
-        ? last.destination === Object.keys(e)[0]
-        : last === Object.keys(e)[0]
+    const indexOfPlanet = adj.findIndex(
+      (e) => last.destination === Object.keys(e)[0]
     );
 
     // Traverse to all the nodes connected to
@@ -93,8 +110,12 @@ const testDfs = (
         ? []
         : Object.values(adj[indexOfPlanet])[0].map((e) => e);
     for (let i = 0; i < lastNode.length; i++) {
-      if (isNotVisited(lastNode[i], path)) {
-        let newpath: number[] = Array.from(path);
+      if (
+        isNotVisited(lastNode[i], path) &&
+        lastNode[i].travel_time <= shipAutonomy &&
+        checkIfThereIsEnoughTime(7, path, lastNode[i].travel_time, shipAutonomy)
+      ) {
+        let newpath: any[] = Array.from(path);
         newpath.push(lastNode[i]);
         queue.push(newpath);
       }
@@ -107,8 +128,7 @@ const testDfs = (
 export const findAllPathFromStarToTheEnd = (
   currentRoutes: Route[],
   start: string,
-  end: string,
-  limit: number
+  end: string
 ): any[][] => {
   const vertices = findAllUniqueOriginAndDestination(currentRoutes);
   const adjList: Array<Edge> = [];
@@ -116,5 +136,5 @@ export const findAllPathFromStarToTheEnd = (
     addEdgePlanet(route.origin, route.destination, route.travel_time, adjList);
   }
 
-  return testDfs(start, end, adjList);
+  return findAllpaths(start, end, adjList, 6);
 };
