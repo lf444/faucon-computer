@@ -6,20 +6,6 @@ interface Edge {
   [origin: string]: Array<{ destination: string; travel_time: number }>;
 }
 
-export const computeChanceOfarrival = (
-  routes: Route[],
-  empire: Empire,
-  ship: Ship
-): any[][] => {
-  const currentRoutes = routes;
-  return findAllPathFromStarToTheEnd(
-    currentRoutes,
-    ship.departure,
-    ship.arrival,
-    ship.autonomy
-  );
-};
-
 // add edge from origin to destination
 function addEdgePlanet(
   origin: string,
@@ -75,20 +61,24 @@ const checkIfThereIsEnoughTime = (
   return initalValue <= timeLimit;
 };
 
+interface Destination {
+  destination: string;
+  travel_time: number;
+}
 const findAllpaths = (
   start: string,
   end: string,
   adj: Array<Edge>,
   shipAutonomy: number,
   countDown: number
-): Array<any[]> => {
+): Array<Destination[]> => {
   // Create a queue which stores
   // the paths
   let tempArray = [];
   let queue: Array<any[]> = [];
 
   // Path vector to store the current path
-  let path: { destination: string; travel_time: number }[] = [];
+  let path: Destination[] = [];
 
   path.push({ destination: start, travel_time: 0 });
   queue.push(path);
@@ -100,7 +90,6 @@ const findAllpaths = (
     // If last vertex is the desired destination
     // then print the path
     if (last.destination === end) {
-      console.log(path);
       tempArray.push(path);
     }
 
@@ -122,7 +111,7 @@ const findAllpaths = (
         if (
           checkIfThereIsEnoughTime(countDown, path, lastNode[i], shipAutonomy)
         ) {
-          let newpath: any[] = Array.from(path);
+          let newpath: Destination[] = Array.from(path);
           newpath.push(lastNode[i]);
           queue.push(newpath);
         }
@@ -133,16 +122,114 @@ const findAllpaths = (
 };
 
 // Find all avaible route from all routes from start to end
-export const findAllPathFromStarToTheEnd = (
+const findAllPathFromStarToTheEnd = (
   currentRoutes: Route[],
   start: string,
   end: string,
-  shipAutonomy: number
-): any[][] => {
+  shipAutonomy: number,
+  timeLimit: number
+): Array<Destination[]> => {
   const adjList: Array<Edge> = [];
   for (const route of currentRoutes) {
     addEdgePlanet(route.origin, route.destination, route.travel_time, adjList);
   }
 
-  return findAllpaths(start, end, adjList, shipAutonomy, 11);
+  return findAllpaths(start, end, adjList, shipAutonomy, timeLimit);
+};
+const computeProbabilities = (nbOfBountyHunterByPlanet: number): number => {
+  if (0) {
+    return 100;
+  }
+  let initalvalue = 0;
+  for (let i = 0; i < nbOfBountyHunterByPlanet; i++) {
+    initalvalue += Math.pow(9, i) / Math.pow(10, i + 1);
+  }
+  const percentOfSuccess = 100 - initalvalue * 100;
+  return percentOfSuccess <= 0 ? 0 : percentOfSuccess;
+};
+const getProbabilitiesOfArrival = (
+  pathFinded: Array<Destination[]>,
+  empire: Empire,
+  shipAutonomy: number
+): any[] => {
+  const probabilities: Array<{
+    path: Destination[];
+    percentOfSuccess: number;
+  }> = [];
+  console.log(empire.bounty_hunter);
+  console.log("\n");
+  for (const path of pathFinded) {
+    let currentDay = 0;
+    let nbOfBountyHunterByPlanet = 0;
+    let autonomy = shipAutonomy;
+    const initialValue = 0;
+    const dayAvailableByPath =
+      10 -
+      path.reduce(
+        (accumulator, currentDestination) =>
+          accumulator + currentDestination.travel_time,
+        initialValue
+      );
+    console.log(path);
+    // regarder si le sommet courant à des prirates ? puis tester si en on peut donner assez de jour pour les esquiver
+    for (const p of path) {
+      let nextP: Destination | undefined = path[path.indexOf(p) + 1];
+      currentDay += p.travel_time;
+      autonomy -= p.travel_time;
+      let refill = false;
+
+      if (nextP && nextP.travel_time > autonomy) {
+        autonomy = shipAutonomy;
+        refill = true;
+      }
+
+      for (const bh of empire.bounty_hunter) {
+        if (p.destination === bh.planet) {
+          if (currentDay === bh.day) {
+            nbOfBountyHunterByPlanet++;
+          }
+
+          if (refill && currentDay + 1 === bh.day) {
+            nbOfBountyHunterByPlanet++;
+          }
+
+          if (nbOfBountyHunterByPlanet > 0 && dayAvailableByPath > 0) {
+            console.log("destination " + p.destination);
+            for (let i = 0; i < dayAvailableByPath; i++) {}
+          }
+        }
+      }
+    }
+    probabilities.push({
+      path,
+      percentOfSuccess: computeProbabilities(nbOfBountyHunterByPlanet),
+    });
+    console.log("\n");
+  }
+  console.log(probabilities);
+  return probabilities;
+};
+
+export const computeChanceOfarrival = (
+  routes: Route[],
+  empire: Empire,
+  ship: Ship
+): any[][] => {
+  const PathFinded = findAllPathFromStarToTheEnd(
+    routes,
+    ship.departure,
+    ship.arrival,
+    ship.autonomy,
+    10
+  );
+
+  /*   console.log(PathFinded);
+   */
+  const probabilitiesSucces = getProbabilitiesOfArrival(
+    PathFinded,
+    empire,
+    ship.autonomy
+  );
+
+  return probabilitiesSucces;
 };
