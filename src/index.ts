@@ -5,7 +5,7 @@ import { computeChanceOfarrival } from "./compute";
 import { BountyHunter, Empire } from "./dto/Empire";
 import falcon from "./millennium-falcon.json";
 import { openDb } from "./db";
-const port = 8080;
+const port = process.env.PORT || 8080;
 // this is a top-level await
 (async () => {
   // open the database
