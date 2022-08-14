@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon --watch src -e js,ts,json --exec \"ts-node src/index.ts\"",
     "build": "tsup src/index.ts --format cjs --clean",
-    "start": "node dist/index.js",
+    "start": "rm -rf dist/universe.db && cp src/universe.db dist/ &&  node dist/index.js",
     "test": "jest --config ./jest.config.json",
     "test:watch": "npm run test -- --watch"
   },

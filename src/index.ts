@@ -57,7 +57,6 @@ function instanceOfA(object: any): object is Empire {
 app.post("/computeChanceOfarrival", async (req, res) => {
   // open the database
   if (req.body && instanceOfA(req.body)) {
-    console.log(req.body);
     const connection = await openDb();
     const routes: Route[] = await connection.all(
       "SELECT * FROM routes order by origin"
