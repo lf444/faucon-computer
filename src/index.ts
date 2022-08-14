@@ -14,7 +14,7 @@ import { openDb } from "./db";
     "SELECT * FROM routes order by origin"
   );
   const empire: Empire = {
-    countdown: 7,
+    countdown: 10,
     bounty_hunter: [
       { planet: "Hoth", day: 6 },
       { planet: "Hoth", day: 7 },
@@ -23,7 +23,7 @@ import { openDb } from "./db";
   };
 
   const t = computeChanceOfarrival(routes, empire, falcon);
-  /*  console.log(t); */
+  console.log(t);
 })();
 
 /**
@@ -47,4 +47,4 @@ app.use(cors());
 /**
  * Homepage (uniquement necessaire pour cette demo)
  */
-app.get("/", (req, res) => res.send("🏠"));
+app.get("/computeChanceOfarrival", (req, res) => res.send("🏠"));

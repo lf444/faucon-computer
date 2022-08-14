@@ -1,4 +1,5 @@
-import { Empire } from "./dto/Empire";
+import e from "cors";
+import { BountyHunter, Empire } from "./dto/Empire";
 import { Route } from "./dto/Route";
 import { Ship } from "./dto/Ship";
 
@@ -44,20 +45,12 @@ const checkIfThereIsEnoughTime = (
   currentNodeTravelTime: { destination: string; travel_time: number },
   shipAutonomy: number
 ): boolean => {
-  let autonomy = shipAutonomy;
   let initalValue = 0;
   const tempArray = [...path, currentNodeTravelTime];
   for (const p of tempArray) {
     // Check if distance can be done then get fuel & reset ship autonomy
-    if (autonomy < p.travel_time) {
-      autonomy = shipAutonomy;
-      initalValue++;
-    } else {
-      autonomy -= p.travel_time;
-    }
     initalValue += p.travel_time;
   }
-
   return initalValue <= timeLimit;
 };
 
@@ -103,6 +96,7 @@ const findAllpaths = (
       indexOfPlanet === -1
         ? []
         : Object.values(adj[indexOfPlanet])[0].map((e) => e);
+    let autonomy = shipAutonomy;
     for (let i = 0; i < lastNode.length; i++) {
       if (
         isNotVisited(lastNode[i], path) &&
@@ -111,13 +105,22 @@ const findAllpaths = (
         if (
           checkIfThereIsEnoughTime(countDown, path, lastNode[i], shipAutonomy)
         ) {
+          autonomy -= lastNode[i].travel_time;
           let newpath: Destination[] = Array.from(path);
           newpath.push(lastNode[i]);
+          if (lastNode[i].travel_time >= autonomy) {
+            newpath.push({
+              destination: lastNode[i].destination,
+              travel_time: 1,
+            });
+            autonomy = shipAutonomy;
+          }
           queue.push(newpath);
         }
       }
     }
   }
+
   return tempArray;
 };
 
@@ -147,6 +150,8 @@ const computeProbabilities = (nbOfBountyHunterByPlanet: number): number => {
   const percentOfSuccess = 100 - initalvalue * 100;
   return percentOfSuccess <= 0 ? 0 : percentOfSuccess;
 };
+
+// Regarder si les jour suivant y'a des pirates
 const getProbabilitiesOfArrival = (
   pathFinded: Array<Destination[]>,
   empire: Empire,
@@ -155,58 +160,78 @@ const getProbabilitiesOfArrival = (
   const probabilities: Array<{
     path: Destination[];
     percentOfSuccess: number;
+    instrucitonToAvoidPirate?: {
+      destination: string;
+      arrivalShouldbeOnday: number;
+    }[];
   }> = [];
-  console.log(empire.bounty_hunter);
-  console.log("\n");
+
   for (const path of pathFinded) {
     let currentDay = 0;
-    let nbOfBountyHunterByPlanet = 0;
-    let autonomy = shipAutonomy;
     const initialValue = 0;
     const dayAvailableByPath =
-      10 -
+      empire.countdown -
       path.reduce(
         (accumulator, currentDestination) =>
           accumulator + currentDestination.travel_time,
         initialValue
       );
-    console.log(path);
-    // regarder si le sommet courant à des prirates ? puis tester si en on peut donner assez de jour pour les esquiver
-    for (const p of path) {
-      let nextP: Destination | undefined = path[path.indexOf(p) + 1];
-      currentDay += p.travel_time;
-      autonomy -= p.travel_time;
-      let refill = false;
+    const bounty_hunter: BountyHunter[] = [];
+    let dayToWaitByPlanet = [];
 
-      if (nextP && nextP.travel_time > autonomy) {
-        autonomy = shipAutonomy;
-        refill = true;
+    for (const p of path) {
+      currentDay += p.travel_time;
+      if (dayAvailableByPath > 0) {
+        for (let i = 0; i <= dayAvailableByPath; i++) {
+          const test = empire.bounty_hunter.find(
+            (bh) => bh.planet === p.destination && bh.day === currentDay + i
+          );
+          if (!test) {
+            dayToWaitByPlanet.push({
+              destination: p.destination,
+              arrivalShouldbeOnday:
+                currentDay !== currentDay + i ? currentDay + i : 0,
+            });
+            break;
+          }
+        }
       }
 
-      for (const bh of empire.bounty_hunter) {
-        if (p.destination === bh.planet) {
-          if (currentDay === bh.day) {
-            nbOfBountyHunterByPlanet++;
-          }
+      const test = empire.bounty_hunter.filter(
+        (bh) => bh.planet === p.destination && bh.day === currentDay
+      );
+      bounty_hunter.push(...test);
+    }
+    dayToWaitByPlanet = dayToWaitByPlanet.filter(
+      (bh) => bh.arrivalShouldbeOnday !== 0
+    );
 
-          if (refill && currentDay + 1 === bh.day) {
-            nbOfBountyHunterByPlanet++;
-          }
-
-          if (nbOfBountyHunterByPlanet > 0 && dayAvailableByPath > 0) {
-            console.log("destination " + p.destination);
-            for (let i = 0; i < dayAvailableByPath; i++) {}
+    let traveled_time = 0;
+    for (const ph of path) {
+      traveled_time += ph.travel_time;
+      for (const d of dayToWaitByPlanet) {
+        if (d.destination === ph.destination) {
+          if (d.arrivalShouldbeOnday > traveled_time) {
+            traveled_time += d.arrivalShouldbeOnday - traveled_time;
+            ph.travel_time += d.arrivalShouldbeOnday - traveled_time;
           }
         }
       }
     }
-    probabilities.push({
-      path,
-      percentOfSuccess: computeProbabilities(nbOfBountyHunterByPlanet),
-    });
-    console.log("\n");
+
+    if (dayToWaitByPlanet.length > 0 && traveled_time <= empire.countdown) {
+      probabilities.push({
+        path,
+        percentOfSuccess: computeProbabilities(0),
+        instrucitonToAvoidPirate: dayToWaitByPlanet,
+      });
+    } else {
+      probabilities.push({
+        path,
+        percentOfSuccess: computeProbabilities(bounty_hunter.length),
+      });
+    }
   }
-  console.log(probabilities);
   return probabilities;
 };
 
@@ -220,11 +245,9 @@ export const computeChanceOfarrival = (
     ship.departure,
     ship.arrival,
     ship.autonomy,
-    10
+    empire.countdown
   );
 
-  /*   console.log(PathFinded);
-   */
   const probabilitiesSucces = getProbabilitiesOfArrival(
     PathFinded,
     empire,
