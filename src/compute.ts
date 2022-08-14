@@ -154,17 +154,9 @@ const computeProbabilities = (nbOfBountyHunterByPlanet: number): number => {
 // Regarder si les jour suivant y'a des pirates
 const getProbabilitiesOfArrival = (
   pathFinded: Array<Destination[]>,
-  empire: Empire,
-  shipAutonomy: number
-): any[] => {
-  const probabilities: Array<{
-    path: Destination[];
-    percentOfSuccess: number;
-    instrucitonToAvoidPirate?: {
-      destination: string;
-      arrivalShouldbeOnday: number;
-    }[];
-  }> = [];
+  empire: Empire
+): chancesOfArrival[] => {
+  const probabilities: Array<chancesOfArrival> = [];
 
   for (const path of pathFinded) {
     let currentDay = 0;
@@ -183,7 +175,7 @@ const getProbabilitiesOfArrival = (
       currentDay += p.travel_time;
       if (dayAvailableByPath > 0) {
         for (let i = 0; i <= dayAvailableByPath; i++) {
-          const test = empire.bounty_hunter.find(
+          const test = empire.bounty_hunters.find(
             (bh) => bh.planet === p.destination && bh.day === currentDay + i
           );
           if (!test) {
@@ -197,7 +189,7 @@ const getProbabilitiesOfArrival = (
         }
       }
 
-      const test = empire.bounty_hunter.filter(
+      const test = empire.bounty_hunters.filter(
         (bh) => bh.planet === p.destination && bh.day === currentDay
       );
       bounty_hunter.push(...test);
@@ -235,11 +227,19 @@ const getProbabilitiesOfArrival = (
   return probabilities;
 };
 
+export interface chancesOfArrival {
+  path: Destination[];
+  percentOfSuccess: number;
+  instrucitonToAvoidPirate?: {
+    destination: string;
+    arrivalShouldbeOnday: number;
+  }[];
+}
 export const computeChanceOfarrival = (
   routes: Route[],
   empire: Empire,
   ship: Ship
-): any[][] => {
+): chancesOfArrival => {
   const PathFinded = findAllPathFromStarToTheEnd(
     routes,
     ship.departure,
@@ -248,11 +248,14 @@ export const computeChanceOfarrival = (
     empire.countdown
   );
 
-  const probabilitiesSucces = getProbabilitiesOfArrival(
-    PathFinded,
-    empire,
-    ship.autonomy
-  );
+  const probabilitiesSucces = getProbabilitiesOfArrival(PathFinded, empire);
 
-  return probabilitiesSucces;
+  if (probabilitiesSucces.length > 0) {
+    const pathWithTheHighestProbabilitiesOfSucces = probabilitiesSucces.reduce(
+      (prev, current) =>
+        prev.percentOfSuccess > current.percentOfSuccess ? prev : current
+    );
+    return pathWithTheHighestProbabilitiesOfSucces;
+  }
+  return { path: [], percentOfSuccess: 0 };
 };

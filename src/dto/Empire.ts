@@ -1,6 +1,6 @@
 export interface Empire {
   countdown: number;
-  bounty_hunter: BountyHunter[];
+  bounty_hunters: BountyHunter[];
 }
 
 export interface BountyHunter {
