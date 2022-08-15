@@ -2,28 +2,10 @@ import cors from "cors";
 import express from "express";
 import { Route } from "./dto/Route";
 import { computeChanceOfarrival } from "./compute";
-import { BountyHunter, Empire } from "./dto/Empire";
+import { Empire } from "./dto/Empire";
 import falcon from "./millennium-falcon.json";
 import { openDb } from "./db";
 const port = process.env.PORT || 8080;
-// this is a top-level await
-(async () => {
-  // open the database
-  const connection = await openDb();
-  const routes: Route[] = await connection.all(
-    "SELECT * FROM routes order by origin"
-  );
-  const empire: Empire = {
-    countdown: 7,
-    bounty_hunters: [
-      { planet: "Hoth", day: 6 },
-      { planet: "Hoth", day: 7 },
-      { planet: "Hoth", day: 8 },
-    ],
-  };
-
-  const t = computeChanceOfarrival(routes, empire, falcon);
-})();
 
 /**
  * On créé une nouvelle "application" express
@@ -57,7 +39,7 @@ function instanceOfA(object: any): object is Empire {
 app.post("/computeChanceOfarrival", async (req, res) => {
   // open the database
   if (req.body && instanceOfA(req.body)) {
-    const connection = await openDb();
+    const connection = await openDb(falcon);
     const routes: Route[] = await connection.all(
       "SELECT * FROM routes order by origin"
     );
