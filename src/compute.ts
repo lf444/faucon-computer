@@ -26,7 +26,6 @@ export const computeChanceOfarrival = (
   );
 
   const probabilitiesSucces = getProbabilitiesOfArrival(pathFinded, empire);
-  console.log(probabilitiesSucces);
   if (probabilitiesSucces.length > 0) {
     const pathWithTheHighestProbabilitiesOfSucces = probabilitiesSucces.reduce(
       (prev, current) =>
