@@ -14,7 +14,38 @@ const computeProbabilities = (nbOfBountyHunterByPlanet: number): number => {
   return percentOfSuccess <= 0 ? 0 : percentOfSuccess;
 };
 
-// Regarder si les jour suivant y'a des pirates
+const forceToWaitToAvoidPirate = (
+  dayToWaitByPlanet: { destination: string; arrivalShouldbeOnday: number }[],
+  ph: Destination,
+  traveled_time: number
+) => {
+  for (const d of dayToWaitByPlanet) {
+    if (d.destination === ph.destination) {
+      if (d.arrivalShouldbeOnday > traveled_time) {
+        traveled_time += d.arrivalShouldbeOnday - traveled_time;
+        ph.travel_time += d.arrivalShouldbeOnday - traveled_time;
+      }
+    }
+  }
+  return traveled_time;
+};
+
+const accumulateTimeToCheckIfPirateCanBeAvoidedWithInstruction = (
+  path: Destination[],
+  traveled_time: number,
+  dayToWaitByPlanet: { destination: string; arrivalShouldbeOnday: number }[]
+) => {
+  for (const ph of path) {
+    traveled_time += ph.travel_time;
+    traveled_time = forceToWaitToAvoidPirate(
+      dayToWaitByPlanet,
+      ph,
+      traveled_time
+    );
+  }
+  return traveled_time;
+};
+
 export const getProbabilitiesOfArrival = (
   pathFinded: Array<Destination[]>,
   empire: Empire
@@ -62,17 +93,11 @@ export const getProbabilitiesOfArrival = (
     );
 
     let traveled_time = 0;
-    for (const ph of path) {
-      traveled_time += ph.travel_time;
-      for (const d of dayToWaitByPlanet) {
-        if (d.destination === ph.destination) {
-          if (d.arrivalShouldbeOnday > traveled_time) {
-            traveled_time += d.arrivalShouldbeOnday - traveled_time;
-            ph.travel_time += d.arrivalShouldbeOnday - traveled_time;
-          }
-        }
-      }
-    }
+    traveled_time = accumulateTimeToCheckIfPirateCanBeAvoidedWithInstruction(
+      path,
+      traveled_time,
+      dayToWaitByPlanet
+    );
 
     if (dayToWaitByPlanet.length > 0 && traveled_time <= empire.countdown) {
       probabilities.push({
